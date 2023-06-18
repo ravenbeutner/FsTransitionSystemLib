@@ -116,7 +116,7 @@ module TransitionSystem =
                 |> Seq.map fst
 
             if Seq.length statesInPartitionId <= 1 then 
-                // This partiation contains only one state, cannot be split further
+                // This partition contains only one state, cannot be split further
                 None
             else 
 
@@ -180,6 +180,7 @@ module TransitionSystem =
 
                             (m, states)
                             ||> Set.fold (fun mm s -> 
+                                // Overwrite the partitionID for s
                                 Map.add s newId mm
                                 )
                             )
@@ -257,10 +258,11 @@ module Parser =
     let private bodyParser = 
         spaces >>. many (stateParser .>> spaces)
 
+
     let private tsParser = 
         pipe3
-            (spaces >>. skipString "aps" >>. spaces >>. many1 (Util.ParserUtil.escapedStringParser .>> spaces))
-            (spaces >>. skipString "init" >>. spaces >>. many1 (pint32 .>> spaces))
+            (spaces >>. skipString "AP:" >>. spaces >>. many1 (Util.ParserUtil.escapedStringParser .>> spaces))
+            (spaces >>. skipString "Init:" >>. spaces >>. many1 (pint32 .>> spaces))
             (spaces >>. skipString "--BODY--" >>. bodyParser .>> spaces .>> skipString "--END--")
             (fun aps init st -> 
                 {
@@ -284,4 +286,4 @@ module Parser =
         match res with
             | Success (res, _, _) -> Result.Ok res
             | Failure (err, _, _) -> 
-                Result.Error ("Transition system could not be parsed: " + err)
+                Result.Error err
