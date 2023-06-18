@@ -7,7 +7,6 @@ open Util
 open TransitionSystem
 
 exception private NotWellFormedException of String
-exception private NotWellFormedWarningException of String
 
 exception SystemConstructionException of String
 
@@ -596,7 +595,8 @@ type SymbolicSystem =
     }
 
 module SymbolicSystem =
-    let inferTypeOfExpression (symbolicSystem : SymbolicSystem) (e : Expression) =  
+
+    let private inferTypeOfExpression (symbolicSystem : SymbolicSystem) (e : Expression) =  
         let typeMap = symbolicSystem.VarTypes |> Map.ofList
         let defineMap = symbolicSystem.Define |> Map.ofList
 
@@ -618,7 +618,7 @@ module SymbolicSystem =
 
     
 
-    let evaluateExpression (symbolicSystem : SymbolicSystem) (state : Map<String, Set<VariableValue>>) (e : Expression) =  
+    let private evaluateExpression (symbolicSystem : SymbolicSystem) (state : Map<String, Set<VariableValue>>) (e : Expression) =  
         let typeMap = symbolicSystem.VarTypes |> Map.ofList
         let defineMap = symbolicSystem.Define |> Map.ofList
 
@@ -644,7 +644,7 @@ module SymbolicSystem =
 
 
 
-    let rec findError (symbolicSystem : SymbolicSystem) = 
+    let findError (symbolicSystem : SymbolicSystem) = 
         try 
             symbolicSystem.VarTypes
             |> List.countBy fst
@@ -739,198 +739,198 @@ module SymbolicSystem =
                 Some msg
 
 
-let convertSymbolicSystemToTSWithHaltingExpression (symbolicSystem : SymbolicSystem) (haltExpression : Expression) (expressionList : list<Expression>) = 
+    let convertSymbolicSystemToTSWithHaltingExpression (symbolicSystem : SymbolicSystem) (haltExpression : Expression) (expressionList : list<Expression>) = 
 
-    let vars = symbolicSystem.VarTypes |> List.map fst |> set
+        let vars = symbolicSystem.VarTypes |> List.map fst |> set
 
-    let typeMap = symbolicSystem.VarTypes |> Map.ofList
-    let initMap = symbolicSystem.Init |> Map.ofList
-    let nextMap = symbolicSystem.Next |> Map.ofList
+        let typeMap = symbolicSystem.VarTypes |> Map.ofList
+        let initMap = symbolicSystem.Init |> Map.ofList
+        let nextMap = symbolicSystem.Next |> Map.ofList
 
-    let allStates = new HashSet<_>()
-    let queue = new Queue<_>()
-    let edgeDict = new Dictionary<_,_>()
-    let apEvalDict = new Dictionary<_,_>()  
+        let allStates = new HashSet<_>()
+        let queue = new Queue<_>()
+        let edgeDict = new Dictionary<_,_>()
+        let apEvalDict = new Dictionary<_,_>()  
 
-    let initStates = 
-        vars
-        |> Set.toList
-        |> List.map (fun name -> 
-            let possibleInitValues = 
-                if Map.containsKey name initMap then 
-                    try 
-                        SymbolicSystem.evaluateExpression symbolicSystem Map.empty initMap.[name]
-                    with 
-                        | EvaluationCyclicDependenciesException -> 
-                            raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating initial expression for variable %s{name}"
-                        | EvaluationUndefinedVariableException x -> 
-                            // the init condition for 'name' uses 'x'. If this is a system varaible it is fine, otherwise we report an erro
-                            if Map.containsKey x typeMap then 
-                                // We allow something like init(x) = y
-                                // Here we then return all possible values and later filter all possible combinations
-                                VariableType.allValues typeMap.[name] |> set
-                            else 
-                                raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating initial expression for variable %s{name}"
-                else 
-                    // No initial condition for `name` defined. We use all possible values
-                    VariableType.allValues typeMap.[name] |> set
-
-            possibleInitValues
-            |> Set.iter (fun v -> 
-                if VariableType.isValueOfType v typeMap.[name] |> not then 
-                    raise <| SystemConstructionException $"The value of the initial expression for variable %s{name} is %s{VariableValue.print v} which does not match {VariableType.print typeMap.[name]}"
-                )
-
-            name, possibleInitValues
-            )
-        |> Map
-        |> Util.cartesianProductMap
-        |> Seq.filter (fun state -> 
-            // We now re-check the initial conditions for all varaibles (this is only needed when some initial condition uses other varaibles, but we always check it as it is cheap)
-            vars 
-            |> Set.forall (fun name -> 
+        let initStates = 
+            vars
+            |> Set.toList
+            |> List.map (fun name -> 
                 let possibleInitValues = 
                     if Map.containsKey name initMap then 
-                        // An initial condition is defined, we evaluate this expression in the current state
                         try 
-                            SymbolicSystem.evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) initMap.[name]
+                            evaluateExpression symbolicSystem Map.empty initMap.[name]
                         with 
                             | EvaluationCyclicDependenciesException -> 
                                 raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating initial expression for variable %s{name}"
                             | EvaluationUndefinedVariableException x -> 
-                                raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating initial expression for variable %s{name}"
+                                // the init condition for 'name' uses 'x'. If this is a system varaible it is fine, otherwise we report an erro
+                                if Map.containsKey x typeMap then 
+                                    // We allow something like init(x) = y
+                                    // Here we then return all possible values and later filter all possible combinations
+                                    VariableType.allValues typeMap.[name] |> set
+                                else 
+                                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating initial expression for variable %s{name}"
                     else 
-                        // No initial constraint
+                        // No initial condition for `name` defined. We use all possible values
                         VariableType.allValues typeMap.[name] |> set
 
-                // Keep this state if the current value is within the allowed values
-                Set.contains state.[name] possibleInitValues
+                possibleInitValues
+                |> Set.iter (fun v -> 
+                    if VariableType.isValueOfType v typeMap.[name] |> not then 
+                        raise <| SystemConstructionException $"The value of the initial expression for variable %s{name} is %s{VariableValue.print v} which does not match {VariableType.print typeMap.[name]}"
+                    )
+
+                name, possibleInitValues
                 )
-            )
-        |> HashSet
-
-    for s in initStates do
-        queue.Enqueue s
-        allStates.Add s |> ignore
-
-    while queue.Count <> 0 do 
-        let state = queue.Dequeue()
-
-        // We eval the halt proposition to check if we can halt here
-        let hasHalted = 
-            try 
-                SymbolicSystem.evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) haltExpression 
-            with 
-                | EvaluationCyclicDependenciesException -> 
-                    raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating halting expression"
-                | EvaluationUndefinedVariableException x -> 
-                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating halting expression"
-            
-            |> Set.toList
-            |> function 
-                | [BoolValue b] -> b 
-                | v -> raise <| SystemConstructionException $"Halting expression %s{Expression.print haltExpression} evlautes to the non-boolean value %s{VariableValue.printList v}"
-
-        let allSucs = 
-            if hasHalted then 
-                // Halted, so we loop in this state
-                Set.singleton state
-            else
-                vars
-                |> Set.toList
-                |> List.map (fun name -> 
-                    let nextValues = 
-                        
-                        if Map.containsKey name nextMap then 
+            |> Map
+            |> Util.cartesianProductMap
+            |> Seq.filter (fun state -> 
+                // We now re-check the initial conditions for all varaibles (this is only needed when some initial condition uses other varaibles, but we always check it as it is cheap)
+                vars 
+                |> Set.forall (fun name -> 
+                    let possibleInitValues = 
+                        if Map.containsKey name initMap then 
+                            // An initial condition is defined, we evaluate this expression in the current state
                             try 
-                                SymbolicSystem.evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) nextMap.[name] 
+                                evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) initMap.[name]
                             with 
                                 | EvaluationCyclicDependenciesException -> 
-                                    raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating the next expression for variable %s{name}"
+                                    raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating initial expression for variable %s{name}"
                                 | EvaluationUndefinedVariableException x -> 
-                                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating the next expression for variable %s{name}"
+                                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating initial expression for variable %s{name}"
                         else 
-                            // No next condition given, so we return all values
+                            // No initial constraint
                             VariableType.allValues typeMap.[name] |> set
 
-                    nextValues 
-                    |> Set.iter (fun v -> 
-                        if VariableType.isValueOfType v typeMap.[name] |> not then 
-                            raise <| SystemConstructionException $"The value of the next expression for variable %s{name} is %s{VariableValue.print v} which does not match the type of %s{name} (VariableType.print typeMap.[name])"
-                        )
-
-                    name, nextValues
+                    // Keep this state if the current value is within the allowed values
+                    Set.contains state.[name] possibleInitValues
                     )
-                |> Map
-                |> Util.cartesianProductMap
-                |> set
+                )
+            |> HashSet
 
-        let apEval = 
-            expressionList
-            |> List.indexed 
-            |> List.filter (fun (i, e) -> 
+        for s in initStates do
+            queue.Enqueue s
+            allStates.Add s |> ignore
+
+        while queue.Count <> 0 do 
+            let state = queue.Dequeue()
+
+            // We eval the halt proposition to check if we can halt here
+            let hasHalted = 
                 try 
-                    SymbolicSystem.evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) e
+                    evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) haltExpression 
                 with 
                     | EvaluationCyclicDependenciesException -> 
-                        raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating the %i{i}th AP-expression"
+                        raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating halting expression"
                     | EvaluationUndefinedVariableException x -> 
-                        raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating the %i{i}th AP-expression"
+                        raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating halting expression"
+                
                 |> Set.toList
                 |> function 
                     | [BoolValue b] -> b 
-                    | v ->
-                        raise <| SystemConstructionException $"The %i{i}th AP-expression evaluates to the non-boolean value %s{VariableValue.printList v}"
-                )
-            |> List.map fst 
-            |> set
+                    | v -> raise <| SystemConstructionException $"Halting expression %s{Expression.print haltExpression} evlautes to the non-boolean value %s{VariableValue.printList v}"
 
-        edgeDict.Add(state, allSucs)
-        apEvalDict.Add(state, apEval)
+            let allSucs = 
+                if hasHalted then 
+                    // Halted, so we loop in this state
+                    Set.singleton state
+                else
+                    vars
+                    |> Set.toList
+                    |> List.map (fun name -> 
+                        let nextValues = 
+                            
+                            if Map.containsKey name nextMap then 
+                                try 
+                                    evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) nextMap.[name] 
+                                with 
+                                    | EvaluationCyclicDependenciesException -> 
+                                        raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating the next expression for variable %s{name}"
+                                    | EvaluationUndefinedVariableException x -> 
+                                        raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating the next expression for variable %s{name}"
+                            else 
+                                // No next condition given, so we return all values
+                                VariableType.allValues typeMap.[name] |> set
 
-        for s in allSucs do 
-            if allStates.Contains s |> not then 
-                queue.Enqueue s
-                allStates.Add s |> ignore
+                        nextValues 
+                        |> Set.iter (fun v -> 
+                            if VariableType.isValueOfType v typeMap.[name] |> not then 
+                                raise <| SystemConstructionException $"The value of the next expression for variable %s{name} is %s{VariableValue.print v} which does not match the type of %s{name} (VariableType.print typeMap.[name])"
+                            )
 
-    let allStates = allStates |> set 
+                        name, nextValues
+                        )
+                    |> Map
+                    |> Util.cartesianProductMap
+                    |> set
 
-    let edgeMap = 
-        edgeDict
-        |> Util.dictToMap
-    
-    let apEvalMap = 
-        apEvalDict
-        |> Util.dictToMap
+            let apEval = 
+                expressionList
+                |> List.indexed 
+                |> List.filter (fun (i, e) -> 
+                    try 
+                        evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) e
+                    with 
+                        | EvaluationCyclicDependenciesException -> 
+                            raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating the %i{i}th AP-expression"
+                        | EvaluationUndefinedVariableException x -> 
+                            raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating the %i{i}th AP-expression"
+                    |> Set.toList
+                    |> function 
+                        | [BoolValue b] -> b 
+                        | v ->
+                            raise <| SystemConstructionException $"The %i{i}th AP-expression evaluates to the non-boolean value %s{VariableValue.printList v}"
+                    )
+                |> List.map fst 
+                |> set
 
-    let renamingDict = 
-        allStates
-        |> Seq.mapi (fun i x -> x, i)
-        |> Map.ofSeq
- 
-    {
-        States = 
-            renamingDict.Values |> set
-        InitialStates = 
-            initStates
-            |> Seq.map (fun x -> renamingDict.[x])
-            |> set
-        APs = expressionList;
-        Edges = 
-            edgeMap 
-            |> Map.toSeq
-            |> Seq.map (fun (k, v) -> renamingDict[k], Set.map (fun x -> renamingDict[x]) v)
+            edgeDict.Add(state, allSucs)
+            apEvalDict.Add(state, apEval)
+
+            for s in allSucs do 
+                if allStates.Contains s |> not then 
+                    queue.Enqueue s
+                    allStates.Add s |> ignore
+
+        let allStates = allStates |> set 
+
+        let edgeMap = 
+            edgeDict
+            |> Util.dictToMap
+        
+        let apEvalMap = 
+            apEvalDict
+            |> Util.dictToMap
+
+        let renamingDict = 
+            allStates
+            |> Seq.mapi (fun i x -> x, i)
             |> Map.ofSeq
-        ApEval = 
-            apEvalMap
-            |> Map.toSeq
-            |> Seq.map (fun (k, v) -> renamingDict[k], v)
-            |> Map.ofSeq
-    }
-
-let convertSymbolicSystemToTS (symbolicSystem : SymbolicSystem) (expressionList : list<Expression>) = 
-    convertSymbolicSystemToTSWithHaltingExpression symbolicSystem (Expression.Const (BoolConstant false)) expressionList
     
+        {
+            States = 
+                renamingDict.Values |> set
+            InitialStates = 
+                initStates
+                |> Seq.map (fun x -> renamingDict.[x])
+                |> set
+            APs = expressionList
+            Edges = 
+                edgeMap 
+                |> Map.toSeq
+                |> Seq.map (fun (k, v) -> renamingDict[k], Set.map (fun x -> renamingDict[x]) v)
+                |> Map.ofSeq
+            ApEval = 
+                apEvalMap
+                |> Map.toSeq
+                |> Seq.map (fun (k, v) -> renamingDict[k], v)
+                |> Map.ofSeq
+        }
+
+    let convertSymbolicSystemToTS (symbolicSystem : SymbolicSystem) (expressionList : list<Expression>) = 
+        convertSymbolicSystemToTSWithHaltingExpression symbolicSystem (Expression.Const (BoolConstant false)) expressionList
+
 
 module Parser = 
     open FParsec
