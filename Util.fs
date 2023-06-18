@@ -9,6 +9,14 @@ let rec combineStringsWithSeperator (s: string) (l: list<string>) =
     | x::y::xs -> 
         x + s + combineStringsWithSeperator s (y::xs)
 
+/// Given a number n, computes all lists of booleans of length n 
+let rec computeBooleanPowerSet n =
+    if n = 0 then
+        Seq.singleton []
+    else
+        let r = computeBooleanPowerSet (n-1)
+        Seq.append (Seq.map (fun x -> true::x) r) (Seq.map (fun x -> false::x) r)
+        
 let rec cartesianProduct (LL: list<seq<'a>>) =
     match LL with
     | [] -> Seq.singleton []

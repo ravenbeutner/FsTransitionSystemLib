@@ -8,6 +8,7 @@
     <Compile Include="Util.fs" />
     <Compile Include="TransitionSystem.fs" />
     <Compile Include="SymbolicSystem.fs" />
+    <Compile Include="BooleanProgramSystem.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
