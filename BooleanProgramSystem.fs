@@ -1,4 +1,4 @@
-module BooleanProgramSystem
+module TransitionSystemLib.BooleanProgramSystem
 
 open System
 open System.Collections.Generic
@@ -333,28 +333,11 @@ module Parser =
 
         let variableParser = 
             identifierParser
-            |>> ProgramExpression.Variable
+            |>> Variable
 
         let parParser = 
             skipChar '(' >>. ws >>. expParser .>> ws .>> skipChar ')'
 
-        let indexingParser = 
-            let indexParser = 
-                skipChar '[' >>. 
-                    choice [
-                        attempt (tuple2 
-                            (pint32 .>> ws .>> skipChar ',' .>> ws)
-                            (pint32));
-                        // Use a single index
-                        pint32
-                        |>> fun x -> x, x
-                    ]
-
-            pipe2 
-                (expParser .>> ws)
-                indexParser
-                (fun e (a, b) -> ProgramExpression.Indexing(e, a, b))
-        
         let multParser = 
             pipe2 
                 (pint32 .>> ws .>> skipChar '*' .>> ws)
@@ -367,7 +350,6 @@ module Parser =
                 trueParser
                 falseParser
                 parParser
-                attempt indexingParser
                 multParser
                 variableParser
             ] .>> ws
@@ -392,7 +374,25 @@ module Parser =
             addInfixOperator "@" 5 Associativity.None (fun x y -> ProgramExpression.Concat(x, y))
 
         do 
-            expParserRef.Value <- oppParser.ExpressionParser
+            expParserRef.Value <- 
+                oppParser.ExpressionParser
+                >>= (fun e -> 
+                    attempt(
+                        skipChar '[' >>. ws >>. 
+                            tuple2 
+                                (pint32 .>> ws .>> skipChar ',' .>> ws)
+                                (pint32)
+                        .>> ws .>> skipChar ']'
+                        |>> (fun (l, u) -> Indexing(e, l, u)) 
+                    )
+                    <|> 
+                    attempt(
+                        skipChar '[' >>. ws >>. pint32 .>> ws .>> skipChar ']'
+                        |>> (fun i -> Indexing(e, i, i)) 
+                    )
+                    <|>
+                    preturn e
+                )
 
         expParser
 

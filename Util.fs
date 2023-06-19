@@ -1,4 +1,4 @@
-module Util 
+module TransitionSystemLib.Util 
 
 open System.Collections.Generic
 

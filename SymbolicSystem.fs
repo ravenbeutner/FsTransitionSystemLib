@@ -1,4 +1,4 @@
-module SymbolicSystem 
+module TransitionSystemLib.SymbolicSystem 
 
 open System
 open System.Collections.Generic
@@ -594,6 +594,13 @@ type SymbolicSystem =
         Define : list<Identifier * Expression>
     }
 
+    member this.VarTypeMap = 
+        Map.ofList this.VarTypes
+
+
+    member this.DefineMap = 
+        Map.ofList this.Define
+
 module SymbolicSystem =
 
     let private inferTypeOfExpression (symbolicSystem : SymbolicSystem) (e : Expression) =  
@@ -968,7 +975,7 @@ module Parser =
             "nxor"
         ]
 
-    let private identifierParser = 
+    let identifierParser = 
         attempt(
             (letter <|> pchar '_') .>>. manyChars (letter <|> digit <|> pchar '_' <|> pchar '$' <|> pchar '#' <|> pchar '-' <|> pchar '.' <|> pchar '[' <|> pchar ']') 
             >>= fun (x, y) -> (
@@ -980,7 +987,7 @@ module Parser =
                 )
         )
         
-    let private expParser = 
+    let expressionParser = 
         let expParser, expParserRef = createParserForwardedToRef()
 
         let constantParser = 
@@ -1141,19 +1148,19 @@ module Parser =
     let private initParser = 
         pipe2 
             (pstring "init(" >>. ws >>. identifierParser .>> ws .>> pchar ')')
-            (ws >>. pstring ":=" >>. ws >>. expParser .>> ws .>> pchar ';')
+            (ws >>. pstring ":=" >>. ws >>. expressionParser .>> ws .>> pchar ';')
             (fun x e -> Init(x, e))
 
     let private nextParser = 
         pipe2
             (pstring "next(" >>. ws >>. identifierParser .>> ws .>> pchar ')')
-            (ws >>. pstring ":=" >>. ws >>. expParser .>> ws .>> pchar ';')
+            (ws >>. pstring ":=" >>. ws >>. expressionParser .>> ws .>> pchar ';')
             (fun x e -> Next(x, e))
 
     let private defineParser = 
         pipe2 
             identifierParser 
-            (ws >>. pstring ":=" >>. ws >>. expParser .>> ws .>> pchar ';')
+            (ws >>. pstring ":=" >>. ws >>. expressionParser .>> ws .>> pchar ';')
             (fun x e -> Define(x, e))
 
     let private varSectionParser = 

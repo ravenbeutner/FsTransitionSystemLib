@@ -1,4 +1,4 @@
-module TransitionSystem
+module TransitionSystemLib.TransitionSystem
 
 open Util 
 
@@ -244,7 +244,7 @@ module Parser =
         between
             (skipChar '{')
             (skipChar '}')
-            (spaces >>. many (pint32 .>> spaces)  .>> spaces)
+            (spaces >>. many (pint32 .>> spaces))
         |>> set
 
     let private stateParser = 
@@ -259,7 +259,7 @@ module Parser =
         spaces >>. many (stateParser .>> spaces)
 
 
-    let private tsParser = 
+    let private transitionSystemParser = 
         pipe3
             (spaces >>. skipString "AP:" >>. spaces >>. many1 (Util.ParserUtil.escapedStringParser .>> spaces))
             (spaces >>. skipString "Init:" >>. spaces >>. many1 (pint32 .>> spaces))
@@ -280,8 +280,8 @@ module Parser =
                 }       
                 )
     
-    let parseTS (s: string) =
-        let full = tsParser .>> spaces .>> eof
+    let parseTransitionSystem (s: string) =
+        let full = transitionSystemParser .>> spaces .>> eof
         let res = run full s
         match res with
             | Success (res, _, _) -> Result.Ok res
