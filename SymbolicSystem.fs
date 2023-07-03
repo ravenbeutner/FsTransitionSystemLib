@@ -10,9 +10,14 @@ exception private NotWellFormedException of String
 
 exception SystemConstructionException of String
 
-exception private TypeInferenceException of String
-exception private EvaluationCyclicDependenciesException
-exception private EvaluationUndefinedVariableException of string
+exception TypeInferenceException of String
+
+type EvaluationError = 
+    | GeneralError of String
+    | UndefinedVariable of String 
+    | CyclicDependecy
+
+exception EvaluationException of EvaluationError
 
 type Constant = 
     | BoolConstant of bool
@@ -220,7 +225,8 @@ module Expression =
         | Case l -> 
             "(case { \n" + (l |> List.fold (fun s (g, e) -> s + print g + " : " + print e + "\n") "") + "}esac)"
 
-
+    /// Infer
+    /// raises TypeInferenceException
     let rec inferType (env : String -> VariableType) (e : Expression) = 
         match e with 
         | Var s -> env s
@@ -232,66 +238,66 @@ module Expression =
             match inferType env e1, inferType env e2 with 
             | IntType _, IntType _ -> BoolType
             | BoolType, BoolType -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '='"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '='"
 
         | Neq (e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | IntType _, IntType _ -> BoolType
             | BoolType, BoolType -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '!='"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '!='"
 
         // ================================== Compare ==================================
         | Leq (e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | IntType _, IntType _ -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '<='"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '<='"
 
         | Geq(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | IntType _, IntType _ -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '>='"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '>='"
 
         | Lt(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | IntType _, IntType _ -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '<'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '<'"
 
         | Gt(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | IntType _, IntType _ -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '>'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be compared with '>'"
 
         // ================================== Boolean ==================================
         | And(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | BoolType, BoolType -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '&'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '&'"
 
         | Or(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | BoolType, BoolType -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '|'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '|'"
 
         | Implies(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | BoolType, BoolType -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '->'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '->'"
 
         | Equiv(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | BoolType, BoolType -> BoolType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '<->'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '<->'"
 
         | Neg e ->
             match inferType env e with 
             | BoolType -> BoolType
-            | t -> raise <| SystemConstructionException $"Expression %s{print e} (of type %s{VariableType.print t}) cannot be combined with '!'"
+            | t -> raise <| TypeInferenceException $"Expression %s{print e} (of type %s{VariableType.print t}) cannot be combined with '!'"
 
         // ================================== Arithmetic ==================================
         | UnaryMinus e -> 
             match inferType env e with 
             | IntType s -> s |> Set.map (fun x -> x - 1) |> IntType
-            | t -> raise <| SystemConstructionException $"Expressions %s{print e} (of type %s{VariableType.print t}) cannot be combined with '-'"
+            | t -> raise <| TypeInferenceException $"Expressions %s{print e} (of type %s{VariableType.print t}) cannot be combined with '-'"
         | Add(e1, e2) -> 
             match inferType env e1, inferType env e2 with 
             | IntType s1, IntType s2 -> 
@@ -299,7 +305,7 @@ module Expression =
                 |> Seq.map (fun (a, b) -> a + b)
                 |> set 
                 |> IntType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '+'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '+'"
         | Sub(e1, e2) -> 
             match inferType env e1, inferType env e2  with 
             | IntType s1, IntType s2 -> 
@@ -307,7 +313,7 @@ module Expression =
                 |> Seq.map (fun (a, b) -> a - b)
                 |> set 
                 |> IntType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '-'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '-'"
         | Mul(e1, e2) -> 
             match inferType env e1, inferType env e2  with 
             | IntType s1, IntType s2 -> 
@@ -315,7 +321,7 @@ module Expression =
                 |> Seq.map (fun (a, b) -> a * b)
                 |> set 
                 |> IntType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '*'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '*'"
         | Div(e1, e2) -> 
             match inferType env e1, inferType env e2  with 
             | IntType s1, IntType s2 -> 
@@ -323,7 +329,7 @@ module Expression =
                 |> Seq.map (fun (a, b) -> a / b)
                 |> set 
                 |> IntType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '/'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with '/'"
         | Mod(e1, e2) -> 
             match inferType env e1, inferType env e2  with 
             | IntType s1, IntType s2 -> 
@@ -331,7 +337,7 @@ module Expression =
                 |> Seq.map (fun (a, b) -> if a = 0 || b = 0 then 0 else a % b)
                 |> set 
                 |> IntType
-            | t1, t2 -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with 'mod'"
+            | t1, t2 -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t1}) and %s{print e2} (of type %s{VariableType.print t2}) cannot be combined with 'mod'"
 
         // ==================================  ==================================
         | SetExp e -> 
@@ -341,7 +347,7 @@ module Expression =
                 match VariableType.joinTypes t1 t2 with 
                 | Some t -> t
                 | None -> 
-                    raise <| SystemConstructionException $"Could not type set-expression: \n %s{print (SetExp e)}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}"
+                    raise <| TypeInferenceException $"Could not type set-expression: \n %s{print (SetExp e)}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}"
                 )
         | Ite(e1: Expression, e2, e3) -> 
             match inferType env e1, inferType env e2, inferType env e3  with 
@@ -349,26 +355,26 @@ module Expression =
                 match VariableType.joinTypes t1 t2 with 
                 | Some t -> t
                 | None -> 
-                    raise <| SystemConstructionException $"Could not type '_ ? _ : _'  expression: \n %s{print (Ite(e1, e2, e3))}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}"
+                    raise <| TypeInferenceException $"Could not type '_ ? _ : _'  expression: \n %s{print (Ite(e1, e2, e3))}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}"
 
-            | t, _, _ -> raise <| SystemConstructionException $"Expressions %s{print e1} (of type %s{VariableType.print t}) is not allowed in guar of '_ ? _ : _' statement"
+            | t, _, _ -> raise <| TypeInferenceException $"Expressions %s{print e1} (of type %s{VariableType.print t}) is not allowed in guar of '_ ? _ : _' statement"
         | SetUnion(e1, e2) -> 
             match inferType env e1, inferType env e2  with 
             | t1, t2 -> 
                 match VariableType.joinTypes t1 t2 with 
                 | Some t ->  t
-                | None -> raise <| SystemConstructionException $"Could not type expression: \n %s{print (SetUnion(e1, e2))}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}"
+                | None -> raise <| TypeInferenceException $"Could not type expression: \n %s{print (SetUnion(e1, e2))}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}"
         | ToBool e -> 
             match inferType env e with 
             | IntType _ -> BoolType
-            | _ -> raise <| SystemConstructionException $"Could not type expression: \n %s{print (ToBool e)}"
+            | _ -> raise <| TypeInferenceException $"Could not type expression: \n %s{print (ToBool e)}"
         | ToInt e -> 
             match inferType env e with 
             | BoolType -> IntType ([0; 1] |> set)
-            | _ -> raise <| SystemConstructionException $"Could not type expression: \n %s{print (ToInt e)}"
+            | _ -> raise <| TypeInferenceException $"Could not type expression: \n %s{print (ToInt e)}"
         | Case (cases) -> 
             if cases |> List.exists (fun (g, _) -> inferType env g <> BoolType) then 
-                raise <| SystemConstructionException $"Guard Expression does not have boolean type"
+                raise <| TypeInferenceException $"Guard Expression does not have boolean type"
             else 
                 cases 
                 |> List.map (fun (_, e) -> inferType env e)
@@ -376,7 +382,7 @@ module Expression =
                     match VariableType.joinTypes t1 t2 with 
                         | Some t -> t
                         | None -> 
-                            raise <| SystemConstructionException $"Could not type case-expression: \n %s{print (Case cases)}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}."
+                            raise <| TypeInferenceException $"Could not type case-expression: \n %s{print (Case cases)}\n Failed to join types %s{VariableType.print t1} and %s{VariableType.print t2}."
                     )
 
    
@@ -397,7 +403,7 @@ module Expression =
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> BoolValue (i1 = i2)
                 | BoolValue b1, BoolValue b2 -> BoolValue (b1 = b2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Eq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (Eq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Neq(e1, e2) -> 
@@ -407,7 +413,7 @@ module Expression =
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> BoolValue (i1 <> i2)
                 | BoolValue b1, BoolValue b2 -> BoolValue (b1 <> b2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Neq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Neq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
 
@@ -417,7 +423,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> BoolValue (i1 <= i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Leq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Leq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Geq(e1, e2) -> 
@@ -426,7 +432,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> BoolValue (i1 >= i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Geq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Geq(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Lt(e1, e2) -> 
@@ -435,7 +441,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> BoolValue (i1 < i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Lt(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Lt(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Gt(e1, e2) -> 
@@ -444,7 +450,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> BoolValue (i1 > i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Gt(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Gt(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
             
@@ -454,7 +460,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | BoolValue b1, BoolValue b2 -> BoolValue (b1 && b2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (And(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (And(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Or(e1, e2) -> 
@@ -463,7 +469,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | BoolValue b1, BoolValue b2 -> BoolValue (b1 || b2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Or(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Or(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Implies(e1, e2) -> 
@@ -472,7 +478,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | BoolValue b1, BoolValue b2 -> BoolValue (not b1 || b2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Implies(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Implies(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Equiv(e1, e2) -> 
@@ -481,7 +487,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | BoolValue b1, BoolValue b2 -> BoolValue ((b1 && b2) || (not b1 && not b2))
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Equiv(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Equiv(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Neg e ->
@@ -489,7 +495,7 @@ module Expression =
             |> Set.map (fun v -> 
                 match v with 
                 | BoolValue b -> BoolValue (not b)
-                | v -> raise <| SystemConstructionException $"Could not eval %s{print (Neg e)} for value %s{VariableValue.print v}"
+                | v -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (Neg e)} for value %s{VariableValue.print v}")
             )
 
         | UnaryMinus e -> 
@@ -497,7 +503,7 @@ module Expression =
             |> Set.map (fun v -> 
                 match v with 
                 | IntValue i -> IntValue -i
-                | v -> raise <| SystemConstructionException $"Could not eval %s{print (UnaryMinus e)} for value %s{VariableValue.print v}"
+                | v -> raise <| EvaluationException (GeneralError$"Could not eval %s{print (UnaryMinus e)} for value %s{VariableValue.print v}")
             )
         | Add(e1, e2) -> 
             (eval env e1 |> Set.toList, eval env e2 |> Set.toList)
@@ -505,7 +511,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> IntValue(i1 + i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Add(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (Add(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Sub(e1, e2) -> 
@@ -514,7 +520,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> IntValue(i1 - i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Sub(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (Sub(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Mul(e1, e2) -> 
@@ -523,7 +529,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> IntValue(i1 * i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Mul(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (Mul(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Div(e1, e2) -> 
@@ -532,7 +538,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> IntValue(i1 / i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Div(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (Div(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
         | Mod(e1, e2) -> 
@@ -541,7 +547,7 @@ module Expression =
             |> List.map (fun (v1, v2) -> 
                 match v1, v2 with 
                 | IntValue i1, IntValue i2 -> IntValue(i1 % i2)
-                | v1, v2 -> raise <| SystemConstructionException $"Could not eval %s{print (Mod(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}"
+                | v1, v2 -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (Mod(e1, e2))} for values %s{VariableValue.print v1} and %s{VariableValue.print v2}")
                 )
             |> set
 
@@ -558,7 +564,7 @@ module Expression =
                 match vl with 
                 | [BoolValue b; v1; v2] -> 
                     if b then v1 else v2 
-                | _ -> raise <| SystemConstructionException $"Could not eval %s{print (Ite(e1, e2, e3))} as the guard evaluates to %s{VariableValue.printList vl}"
+                | _ -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (Ite(e1, e2, e3))} as the guard evaluates to %s{VariableValue.printList vl}")
                 )
             |> set
         | ToBool e -> 
@@ -566,14 +572,14 @@ module Expression =
             |> Set.map (fun v -> 
                 match v with 
                 | IntValue i -> if i = 0 then BoolValue false else BoolValue true 
-                | v -> raise <| SystemConstructionException $"Could not eval %s{print (ToBool e)} for value %s{VariableValue.print v}"
+                | v -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (ToBool e)} for value %s{VariableValue.print v}")
                 )
         | ToInt e -> 
             eval env e 
             |> Set.map (fun v -> 
                 match v with 
-                | BoolValue b -> if b then IntValue 1 else IntValue 0
-                | v -> raise <| SystemConstructionException $"Could not eval %s{print (ToInt e)} for value %s{VariableValue.print v}"
+                | BoolValue b -> if b then IntValue 1 else IntValue 0 
+                | v -> raise <| EvaluationException (GeneralError $"Could not eval %s{print (ToInt e)} for value %s{VariableValue.print v}")
             )
         | Case cases -> 
             let firstHit = 
@@ -582,7 +588,7 @@ module Expression =
 
             match firstHit with 
                 | None ->
-                    raise <| SystemConstructionException $"Could not eval %s{print (Case(cases))} as no case was matched"
+                    raise <| EvaluationException (GeneralError $"Could not eval %s{print (Case(cases))} as no case was matched")
                 | Some (_, e) -> 
                     eval env e
     
@@ -603,7 +609,10 @@ type SymbolicSystem =
 
 module SymbolicSystem =
 
-    let private inferTypeOfExpression (symbolicSystem : SymbolicSystem) (e : Expression) =  
+    /// Infers the type of an expression within a given system<br/>
+    /// raises TypeInferenceException
+    let inferTypeOfExpression (symbolicSystem : SymbolicSystem) (e : Expression) =  
+        
         let typeMap = symbolicSystem.VarTypes |> Map.ofList
         let defineMap = symbolicSystem.Define |> Map.ofList
 
@@ -622,10 +631,10 @@ module SymbolicSystem =
                 )
 
         inferType Set.empty e
-
     
-
-    let private evaluateExpression (symbolicSystem : SymbolicSystem) (state : Map<String, Set<VariableValue>>) (e : Expression) =  
+    /// Evaluates an expression within a given system<br/>
+    /// raise EvaluationException
+    let evaluateExpression (symbolicSystem : SymbolicSystem) (state : Map<String, Set<VariableValue>>) (e : Expression) =  
         let typeMap = symbolicSystem.VarTypes |> Map.ofList
         let defineMap = symbolicSystem.Define |> Map.ofList
 
@@ -633,23 +642,21 @@ module SymbolicSystem =
             e 
             |> Expression.eval (fun x -> 
                 if Set.contains x seenVars then 
-                    raise <| EvaluationCyclicDependenciesException
+                    raise <| EvaluationException CyclicDependecy
 
                 if typeMap.ContainsKey x then 
                     // This var should be in the system
                     if Map.containsKey x state then 
                         state.[x]
                     else 
-                        raise <| EvaluationUndefinedVariableException x
+                        raise <| EvaluationException (EvaluationError.UndefinedVariable x)
                 elif Map.containsKey x defineMap then 
                     eval (Set.add x seenVars) state defineMap.[x]
                 else 
-                    raise <| EvaluationUndefinedVariableException x
+                    raise <| EvaluationException (EvaluationError.UndefinedVariable x)
                 )
 
         eval Set.empty state e
-
-
 
     let findError (symbolicSystem : SymbolicSystem) = 
         try 
@@ -690,9 +697,13 @@ module SymbolicSystem =
                 symbolicSystem.VarTypes |> List.map fst |> set
 
             defineMap
-            |> Map.iter (fun _ e -> 
-                inferTypeOfExpression symbolicSystem e 
-                |> ignore
+            |> Map.iter (fun x e -> 
+                try 
+                    inferTypeOfExpression symbolicSystem e 
+                    |> ignore
+                with 
+                | TypeInferenceException err -> 
+                    raise <| NotWellFormedException $"Error when infering the type of the defining expression for %s{x}: %s{err}"
                 )
 
             vars
@@ -712,13 +723,13 @@ module SymbolicSystem =
             |> Set.iter (fun name -> 
                 let t = typeMap.[name]
 
-                let infert = 
+                let infert =   
                     try 
-                        inferTypeOfExpression symbolicSystem initMap.[name] 
+                        inferTypeOfExpression symbolicSystem initMap.[name]
                     with 
-                        | TypeInferenceException err -> 
-                            raise <| NotWellFormedException $"Error when infering type of the init expression for variable %s{name}: %s{err}"
-
+                    | TypeInferenceException err -> 
+                        raise <| NotWellFormedException $"Error when infering the type of the initial expression for variable %s{name}: %s{err}"
+                    
                 if VariableType.haveSameBaseType infert t |> not then 
                     raise <| NotWellFormedException $"The init expression for variable %s{name} has type %s{VariableType.print infert} but the type should be %s{VariableType.print t}"
              
@@ -731,10 +742,10 @@ module SymbolicSystem =
 
                 let infert = 
                     try 
-                        inferTypeOfExpression symbolicSystem nextMap.[name] 
+                        inferTypeOfExpression symbolicSystem nextMap.[name]
                     with 
-                        | TypeInferenceException err -> 
-                            raise <| NotWellFormedException $"Error when infering type of the next expression for variable %s{name}: %s{err}"
+                    | TypeInferenceException err -> 
+                        raise <| NotWellFormedException $"Error when infering the type of the next expression for variable %s{name}: %s{err}"
 
                 if VariableType.haveSameBaseType infert t |> not then 
                     raise <| NotWellFormedException $"The next expression for variable %s{name} has type %s{VariableType.print infert} but the type should be %s{VariableType.print t}"
@@ -745,8 +756,7 @@ module SymbolicSystem =
             | NotWellFormedException msg -> 
                 Some msg
 
-
-    let convertSymbolicSystemToTSWithHaltingExpression (symbolicSystem : SymbolicSystem) (haltExpression : Expression) (expressionList : list<Expression>) = 
+    let convertSymbolicSystemToTransitionSystemWithHaltingExpression (symbolicSystem : SymbolicSystem) (haltExpression : Expression) (expressionList : list<Expression>) = 
 
         let vars = symbolicSystem.VarTypes |> List.map fst |> set
 
@@ -768,19 +778,21 @@ module SymbolicSystem =
                         try 
                             evaluateExpression symbolicSystem Map.empty initMap.[name]
                         with 
-                            | EvaluationCyclicDependenciesException -> 
-                                raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating initial expression for variable %s{name}"
-                            | EvaluationUndefinedVariableException x -> 
-                                // the init condition for 'name' uses 'x'. If this is a system varaible it is fine, otherwise we report an erro
-                                if Map.containsKey x typeMap then 
-                                    // We allow something like init(x) = y
-                                    // Here we then return all possible values and later filter all possible combinations
-                                    VariableType.allValues typeMap.[name] |> set
-                                else 
-                                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating initial expression for variable %s{name}"
+                        | EvaluationException CyclicDependecy -> 
+                            raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating initial expression for variable %s{name}"
+                        | EvaluationException (UndefinedVariable x) -> 
+                            // the init condition for 'name' uses 'x'. If this is a system varaible it is fine, otherwise we report an erro
+                            if Map.containsKey x typeMap then 
+                                // We allow something like init(x) = y
+                                // Here we then return all possible values and later filter all possible combinations
+                                typeMap.[name] |> VariableType.allValues |> set
+                            else 
+                                raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating initial expression for variable %s{name}"
+                        | EvaluationException (GeneralError err) -> 
+                            raise <| SystemConstructionException $"Error when evaluating initial expression for variable %s{name}: %s{err}"
                     else 
                         // No initial condition for `name` defined. We use all possible values
-                        VariableType.allValues typeMap.[name] |> set
+                        typeMap.[name] |> VariableType.allValues |> set
 
                 possibleInitValues
                 |> Set.iter (fun v -> 
@@ -802,10 +814,12 @@ module SymbolicSystem =
                             try 
                                 evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) initMap.[name]
                             with 
-                                | EvaluationCyclicDependenciesException -> 
-                                    raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating initial expression for variable %s{name}"
-                                | EvaluationUndefinedVariableException x -> 
-                                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating initial expression for variable %s{name}"
+                            | EvaluationException CyclicDependecy -> 
+                                raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating init expression for variable %s{name}"
+                            | EvaluationException (UndefinedVariable x) -> 
+                                raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating init expression for variable %s{name}"
+                            | EvaluationException (GeneralError err) -> 
+                                raise <| SystemConstructionException $"Error when evaluating init expression for variable %s{name}: %s{err}"
                         else 
                             // No initial constraint
                             VariableType.allValues typeMap.[name] |> set
@@ -828,11 +842,13 @@ module SymbolicSystem =
                 try 
                     evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) haltExpression 
                 with 
-                    | EvaluationCyclicDependenciesException -> 
-                        raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating halting expression"
-                    | EvaluationUndefinedVariableException x -> 
-                        raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating halting expression"
-                
+                | EvaluationException CyclicDependecy -> 
+                    raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating halting expression"
+                | EvaluationException (UndefinedVariable x) -> 
+                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating halting expression"
+                | EvaluationException (GeneralError err) -> 
+                    raise <| SystemConstructionException $"Error when evaluating halting expression: %s{err}"
+
                 |> Set.toList
                 |> function 
                     | [BoolValue b] -> b 
@@ -852,10 +868,12 @@ module SymbolicSystem =
                                 try 
                                     evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) nextMap.[name] 
                                 with 
-                                    | EvaluationCyclicDependenciesException -> 
-                                        raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating the next expression for variable %s{name}"
-                                    | EvaluationUndefinedVariableException x -> 
-                                        raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating the next expression for variable %s{name}"
+                                | EvaluationException CyclicDependecy -> 
+                                    raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating next expression for variable %s{name}"
+                                | EvaluationException (UndefinedVariable x) -> 
+                                    raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating next expression for variable %s{name}"
+                                | EvaluationException (GeneralError err) -> 
+                                    raise <| SystemConstructionException $"Error when evaluating next expression for variable %s{name}: %s{err}"
                             else 
                                 // No next condition given, so we return all values
                                 VariableType.allValues typeMap.[name] |> set
@@ -879,10 +897,13 @@ module SymbolicSystem =
                     try 
                         evaluateExpression symbolicSystem (state |> Map.map (fun _ v -> Set.singleton v)) e
                     with 
-                        | EvaluationCyclicDependenciesException -> 
-                            raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating the %i{i}th AP-expression"
-                        | EvaluationUndefinedVariableException x -> 
-                            raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating the %i{i}th AP-expression"
+                    | EvaluationException CyclicDependecy -> 
+                        raise <| SystemConstructionException $"Cyclic Dependency detected when evaluating the %i{i}th AP-expression"
+                    | EvaluationException (UndefinedVariable x) -> 
+                        raise <| SystemConstructionException $"Undefined variable %s{x} encountered when evaluating the %i{i}th AP-expression"
+                    | EvaluationException (GeneralError err) -> 
+                        raise <| SystemConstructionException $"Error when evaluating the %i{i}th AP-expression: %s{err}"
+
                     |> Set.toList
                     |> function 
                         | [BoolValue b] -> b 
@@ -935,8 +956,8 @@ module SymbolicSystem =
                 |> Map.ofSeq
         }
 
-    let convertSymbolicSystemToTS (symbolicSystem : SymbolicSystem) (expressionList : list<Expression>) = 
-        convertSymbolicSystemToTSWithHaltingExpression symbolicSystem (Expression.Const (BoolConstant false)) expressionList
+    let convertSymbolicSystemToTransitionSystem (symbolicSystem : SymbolicSystem) (expressionList : list<Expression>) = 
+        convertSymbolicSystemToTransitionSystemWithHaltingExpression symbolicSystem (Expression.Const (BoolConstant false)) expressionList
 
 
 module Parser = 

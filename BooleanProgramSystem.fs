@@ -234,7 +234,7 @@ module BooleanProgram =
         | NotWellFormedException msg -> Some msg
         | BitwidthCheckingException msg -> Some msg
 
-    let convertBooleanProgramToTS (P : BooleanProgram) (relevantAps : list<Var * int>) = 
+    let convertBooleanProgramToTransitionSystem (P : BooleanProgram) (relevantAps : list<Var * int>) = 
         let initialState = (P.Statement, Map.map (fun _ x -> List.init x (fun _ -> false)) P.DomainMap)
 
         let allStates = new HashSet<_>()
