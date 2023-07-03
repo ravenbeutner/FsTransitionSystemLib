@@ -572,7 +572,7 @@ module Expression =
             eval env e 
             |> Set.map (fun v -> 
                 match v with 
-                | BoolValue b -> if b then IntValue 0 else IntValue 1 
+                | BoolValue b -> if b then IntValue 1 else IntValue 0
                 | v -> raise <| SystemConstructionException $"Could not eval %s{print (ToInt e)} for value %s{VariableValue.print v}"
             )
         | Case cases -> 
@@ -1129,6 +1129,9 @@ module Parser =
                 (ws >>. skipString "of" >>. ws >>. varTypeParser)
             |>> TempArrayType
 
+        let parParser = 
+            skipChar '(' >>. varTypeParser .>> ws .>> skipChar ')'
+
         do 
             varTypeParserRef.Value <-
                 ws >>. choice [ 
@@ -1137,6 +1140,7 @@ module Parser =
                     tempBoolTypeParser
                     tempIntTypeParser
                     tempArrayTypeParser
+                    parParser
                 ] .>> ws
 
         pipe2 
