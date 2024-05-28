@@ -1091,7 +1091,7 @@ module SymbolicSystem =
                 let printedString =
                     s
                     |> Map.toSeq
-                    |> Seq.map (fun (var, v) -> var + ":" + VariableValue.print v)
+                    |> Seq.map (fun (var, v) -> "\"" + var + "\"" + ":" + VariableValue.print v)
                     |> String.concat ", "
                     |> fun x -> "{" + x + "}"
 
