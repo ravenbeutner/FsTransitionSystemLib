@@ -1099,35 +1099,42 @@ module SymbolicSystem =
             )
             |> Map.ofSeq
 
-        {
-            States = renamingDict.Values |> set
-            InitialStates = initStates |> Seq.map (fun x -> renamingDict.[x]) |> set
-            VariableType =
-                relevantIdentifierList
-                |> List.map (fun x ->
-                    let t =
-                        try
-                            inferTypeOfExpression symbolicSystem (Var x)
-                        with TypeInferenceException err ->
-                            raise <| SystemConstructionException $"Could not infer type of '{x}': {err}"
 
-                    match t with
-                    | IntType _ -> x, TransitionSystem.VariableType.Int
-                    | BoolType -> x, TransitionSystem.VariableType.Bool
-                )
-                |> Map.ofList
-            Edges =
-                edgeMap
-                |> Map.toSeq
-                |> Seq.map (fun (k, v) -> renamingDict[k], Set.map (fun x -> renamingDict[x]) v)
-                |> Map.ofSeq
-            VariableEval =
-                apEvalMap
-                |> Map.toSeq
-                |> Seq.map (fun (k, v) -> renamingDict[k], v)
-                |> Map.ofSeq
-        },
-        statePrinter
+        let ts =
+            {
+                States = renamingDict.Values |> set
+                InitialStates = initStates |> Seq.map (fun x -> renamingDict.[x]) |> set
+                VariableType =
+                    relevantIdentifierList
+                    |> List.map (fun x ->
+                        let t =
+                            try
+                                inferTypeOfExpression symbolicSystem (Var x)
+                            with TypeInferenceException err ->
+                                raise <| SystemConstructionException $"Could not infer type of '{x}': {err}"
+
+                        match t with
+                        | IntType _ -> x, TransitionSystem.VariableType.Int
+                        | BoolType -> x, TransitionSystem.VariableType.Bool
+                    )
+                    |> Map.ofList
+                Edges =
+                    edgeMap
+                    |> Map.toSeq
+                    |> Seq.map (fun (k, v) -> renamingDict[k], Set.map (fun x -> renamingDict[x]) v)
+                    |> Map.ofSeq
+                VariableEval =
+                    apEvalMap
+                    |> Map.toSeq
+                    |> Seq.map (fun (k, v) -> renamingDict[k], v)
+                    |> Map.ofSeq
+            }
+
+        {
+            TransitionSystemWithPrinter.TransitionSystem = ts
+            Printer = statePrinter
+        }
+
 
     let convertSymbolicSystemToTransitionSystem
         (symbolicSystem : SymbolicSystem)

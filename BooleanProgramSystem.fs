@@ -271,9 +271,7 @@ module BooleanProgram =
 
             let variableEval =
                 relevantAps
-                |> List.map (fun (v, j) -> 
-                    (v, j), (BoolValue (A.[v].[j]))
-                    )
+                |> List.map (fun (v, j) -> (v, j), (BoolValue(A.[v].[j])))
                 |> Map.ofList
 
             for s' in sucs do
@@ -296,7 +294,9 @@ module BooleanProgram =
                 let printedString =
                     s
                     |> Map.toSeq
-                    |> Seq.map (fun (var, v) -> var + ":" + (v |> List.map string |> String.concat ";" |> fun x -> $"[{x}]"))
+                    |> Seq.map (fun (var, v) ->
+                        var + ":" + (v |> List.map string |> String.concat ";" |> (fun x -> $"[{x}]"))
+                    )
                     |> String.concat ", "
                     |> fun x -> "{" + x + "}"
 
@@ -304,24 +304,27 @@ module BooleanProgram =
             )
             |> Map.ofSeq
 
+        let ts =
+            {
+                States = allStates |> Seq.map (fun x -> renamingDict[x]) |> set
+                InitialStates = renamingDict[initialState] |> Set.singleton
+                VariableType = relevantAps |> List.map (fun x -> x, Bool) |> Map.ofList
+                Edges =
+                    edgeDict
+                    |> Seq.map (fun x -> x.Key, x.Value)
+                    |> Seq.map (fun (k, v) -> renamingDict[k], Set.map (fun x -> renamingDict[x]) v)
+                    |> Map.ofSeq
+                VariableEval =
+                    variableEvalDict
+                    |> Seq.map (fun x -> x.Key, x.Value)
+                    |> Seq.map (fun (k, v) -> renamingDict[k], v)
+                    |> Map.ofSeq
+            }
+
         {
-            States = allStates |> Seq.map (fun x -> renamingDict[x]) |> set
-            InitialStates = renamingDict[initialState] |> Set.singleton
-            VariableType = 
-                relevantAps
-                |> List.map (fun x -> x, Bool)
-                |> Map.ofList
-            Edges =
-                edgeDict
-                |> Seq.map (fun x -> x.Key, x.Value)
-                |> Seq.map (fun (k, v) -> renamingDict[k], Set.map (fun x -> renamingDict[x]) v)
-                |> Map.ofSeq
-            VariableEval =
-                variableEvalDict
-                |> Seq.map (fun x -> x.Key, x.Value)
-                |> Seq.map (fun (k, v) -> renamingDict[k], v)
-                |> Map.ofSeq
-        }, statePrinter
+            TransitionSystemWithPrinter.TransitionSystem = ts
+            Printer = statePrinter
+        }
 
 
 module Parser =

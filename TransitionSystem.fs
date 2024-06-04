@@ -67,12 +67,14 @@ module TransitionSystem =
                             | Int, None ->
                                 raise
                                 <| FoundError $"In state '{s}' no value for integer-valued variable '{x}' is given"
-                            | Bool, Some (IntValue _) -> 
+                            | Bool, Some(IntValue _) ->
                                 raise
-                                <| FoundError $"In state '{s}', variable '{x}' is assigned an integer, but assigned type 'Bool'"
-                            | Int, Some (BoolValue _) -> 
+                                <| FoundError
+                                    $"In state '{s}', variable '{x}' is assigned an integer, but assigned type 'Bool'"
+                            | Int, Some(BoolValue _) ->
                                 raise
-                                <| FoundError $"In state '{s}', variable '{x}' is assigned a boolean, but assigned type 'Int'"
+                                <| FoundError
+                                    $"In state '{s}', variable '{x}' is assigned a boolean, but assigned type 'Int'"
                             | _, Some v -> v
                         )
 
@@ -300,6 +302,14 @@ module TransitionSystem =
 
         newTs, finalStateToPartitionId
 
+
+type TransitionSystemWithPrinter<'L when 'L : comparison> =
+    {
+        TransitionSystem : TransitionSystem<'L>
+        Printer : Map<int, string>
+    }
+
+
 module Parser =
     open FParsec
 
@@ -368,8 +378,7 @@ module Parser =
                 }
             )
 
-    let variableParser = 
-        many1Chars (letter <|> digit <|> pchar '_') 
+    let variableParser = many1Chars (letter <|> digit <|> pchar '_')
 
     let parseTransitionSystem (s : string) =
         let full = transitionSystemParser variableParser .>> spaces .>> eof
